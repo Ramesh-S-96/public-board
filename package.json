@@ -1,6 +1,6 @@
 {
   "name": "public-board",
-  "homepage": "https://github.com/Ramesh-S-96/public-board.git",
+  "homepage": "https://github.com/Ramesh-S-96/public-board",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
