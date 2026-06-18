@@ -4,9 +4,6 @@ const MOCK_API_URL = "https://6a32a7a6c6ca2aee438564fb.mockapi.io/daily_updates"
 const CLOUDINARY_CLOUD_NAME = "dcptbmql7"; 
 const CLOUDINARY_UPLOAD_PRESET = "dcptbmql7";
 
-// Ungaluku pidicha oru security key-ai inge set seiyungal
-const ADMIN_SECRET_KEY = "ramesh123"; 
-
 function App() {
   const [updates, setUpdates] = useState([]);
   const [name, setName] = useState('');
@@ -14,6 +11,9 @@ function App() {
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // Tab Management: 'home' = Latest 5 Posts, 'archive' = All Posts Page
+  const [currentPage, setCurrentPage] = useState('home');
 
   // Fetch Data
   const fetchUpdates = async () => {
@@ -31,26 +31,19 @@ function App() {
     fetchUpdates();
   }, []);
 
-  // Delete unwanted posts function
+  // Direct Delete Function (No confirmations or passwords)
   const handleDelete = async (postId) => {
-    const password = prompt("Enter Admin Password to delete this post:");
-    if (!password) return;
-
-    if (password === ADMIN_SECRET_KEY) {
-      try {
-        const res = await fetch(`${MOCK_API_URL}/${postId}`, {
-          method: 'DELETE'
-        });
-        if (!res.ok) throw new Error("Delete failed");
-        
-        alert("🗑️ Post deleted successfully!");
-        fetchUpdates(); // Refresh the list
-      } catch (error) {
-        console.error("Error deleting post:", error.message);
-        alert("Failed to delete post.");
-      }
-    } else {
-      alert("❌ Incorrect Password! Authorization denied.");
+    try {
+      const res = await fetch(`${MOCK_API_URL}/${postId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      
+      // Local state-ai instant-ah update seigirom
+      setUpdates(prev => prev.filter(post => post.id !== postId));
+    } catch (error) {
+      console.error("Error deleting post:", error.message);
+      alert("Failed to delete post.");
     }
   };
 
@@ -112,9 +105,12 @@ function App() {
       setTitle('');
       setContent('');
       setSelectedFile(null);
-      document.getElementById('imageUploadInput').value = '';
+      if(document.getElementById('imageUploadInput')) {
+        document.getElementById('imageUploadInput').value = '';
+      }
       
       fetchUpdates();
+      setCurrentPage('home'); // Post panna odane dashboard feed-ukku kootu sellum
     } catch (error) {
       console.error("Error inserting data: ", error.message);
       alert("Failed to post update.");
@@ -123,77 +119,101 @@ function App() {
     }
   };
 
+  // Main board logic-il 5 posts mattum slice panrom
+  const displayedPosts = currentPage === 'home' ? updates.slice(0, 5) : updates;
+
   return (
     <div style={customStyles.pageBackground}>
-      <header className="py-5 text-center text-white mb-5" style={customStyles.heroSection}>
+      {/* HEADER BAR */}
+      <header className="py-5 text-center text-white mb-4" style={customStyles.heroSection}>
         <div className="container">
           <span className="badge bg-info text-dark mb-2 px-3 py-2 rounded-pill fw-bold text-uppercase">Hub</span>
           <h1 className="display-4 fw-extrabold mb-2">Modern Insight Share</h1>
           <p className="lead opacity-75">Clean & Modern Information Sharing Dashboard</p>
+          
+          {/* NAVIGATION TABS */}
+          <div className="d-flex justify-content-center gap-3 mt-4">
+            <button 
+              className={`btn px-4 py-2 fw-bold rounded-pill shadow-sm transition-all ${currentPage === 'home' ? 'btn-light text-dark' : 'btn-outline-light'}`}
+              onClick={() => setCurrentPage('home')}
+            >
+              🏠 Dashboard (Latest 5)
+            </button>
+            <button 
+              className={`btn px-4 py-2 fw-bold rounded-pill shadow-sm transition-all ${currentPage === 'archive' ? 'btn-light text-dark' : 'btn-outline-light'}`}
+              onClick={() => setCurrentPage('archive')}
+            >
+              📚 View All History ({updates.length})
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="container pb-5">
         <div className="row g-4">
           
-          {/* FORM */}
-          <div className="col-lg-4">
-            <div className="card border-0 shadow-lg sticky-top" style={{ top: '24px', borderRadius: '16px' }}>
-              <div className="card-body p-4">
-                <h3 className="h4 fw-bold mb-4 text-dark">✍️ Write an Article</h3>
-                
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold text-secondary small">Author Name *</label>
-                    <input type="text" className="form-control form-control-lg border-2" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} style={customStyles.inputField} />
-                  </div>
+          {/* LEFT SIDE: WRITE FORM (Only visible in home screen view for perfect look) */}
+          {currentPage === 'home' && (
+            <div className="col-lg-4">
+              <div className="card border-0 shadow-lg sticky-top" style={{ top: '24px', borderRadius: '16px' }}>
+                <div className="card-body p-4">
+                  <h3 className="h4 fw-bold mb-4 text-dark">✍️ Write an Article</h3>
+                  
+                  <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold text-secondary small">Author Name *</label>
+                      <input type="text" className="form-control form-control-lg border-2" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} style={customStyles.inputField} />
+                    </div>
 
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold text-secondary small">Topic / Title *</label>
-                    <input type="text" className="form-control form-control-lg border-2" placeholder="Catchy headline" value={title} onChange={(e) => setTitle(e.target.value)} style={customStyles.inputField} />
-                  </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold text-secondary small">Topic / Title *</label>
+                      <input type="text" className="form-control form-control-lg border-2" placeholder="Catchy headline" value={title} onChange={(e) => setTitle(e.target.value)} style={customStyles.inputField} />
+                    </div>
 
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold text-secondary small">Cover Image Upload</label>
-                    <input id="imageUploadInput" type="file" accept="image/*" className="form-control form-control-lg border-2" onChange={(e) => setSelectedFile(e.target.files[0])} style={customStyles.inputField} />
-                  </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold text-secondary small">Cover Image Upload</label>
+                      <input id="imageUploadInput" type="file" accept="image/*" className="form-control form-control-lg border-2" onChange={(e) => setSelectedFile(e.target.files[0])} style={customStyles.inputField} />
+                    </div>
 
-                  <div className="mb-4">
-                    <label className="form-label fw-semibold text-secondary small">Content / Story *</label>
-                    <textarea rows="5" className="form-control border-2" placeholder="Deep dive into your thoughts..." value={content} onChange={(e) => setContent(e.target.value)} style={customStyles.inputField} />
-                  </div>
+                    <div className="mb-4">
+                      <label className="form-label fw-semibold text-secondary small">Content / Story *</label>
+                      <textarea rows="5" className="form-control border-2" placeholder="Deep dive into your thoughts..." value={content} onChange={(e) => setContent(e.target.value)} style={customStyles.inputField} />
+                    </div>
 
-                  <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-lg fw-bold shadow-sm" style={customStyles.submitBtn}>
-                    {loading ? 'Uploading & Publishing...' : '🚀 Publish Article'}
-                  </button>
-                </form>
+                    <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-lg fw-bold shadow-sm" style={customStyles.submitBtn}>
+                      {loading ? 'Uploading & Publishing...' : '🚀 Publish Article'}
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* FEED */}
-          <div className="col-lg-8">
+          {/* RIGHT SIDE: FEED (Spans full width if 'View All History' page is active) */}
+          <div className={currentPage === 'home' ? 'col-lg-8' : 'col-12'}>
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h2 className="h3 fw-bold text-dark m-0">Recent Articles</h2>
-              <span className="badge bg-dark rounded-pill px-3 py-2 fw-semibold">{updates.length} Posts</span>
+              <h2 className="h3 fw-bold text-dark m-0">
+                {currentPage === 'home' ? '🔥 Latest 5 Feeds' : '📂 Entire Article Database'}
+              </h2>
+              <span className="badge bg-dark rounded-pill px-3 py-2 fw-semibold">Showing {displayedPosts.length} Posts</span>
             </div>
 
-            {updates.length === 0 ? (
-              <div className="text-center p-5 bg-white rounded-4 shadow-sm border">
-                <h4 className="fw-semibold text-muted">No articles published yet</h4>
+            {displayedPosts.length === 0 ? (
+              <div className="text-center p-5 bg-white rounded-4 shadow-sm border w-100">
+                <h4 className="fw-semibold text-muted m-0">No articles found in this section</h4>
               </div>
             ) : (
               <div className="row g-4">
-                {updates.map((item) => (
-                  <div key={item.id} className="col-md-6 d-flex">
+                {displayedPosts.map((item) => (
+                  <div key={item.id} className={currentPage === 'home' ? 'col-md-6 d-flex' : 'col-md-4 d-flex'}>
                     <div className="card border-0 shadow-sm w-100 d-flex flex-column dynamic-card position-relative" style={customStyles.blogCard}>
                       
-                      {/* DELETE ICON (Top Right of Card) */}
+                      {/* DIRECT DELETE ICON - Zero Popups */}
                       <button 
                         onClick={() => handleDelete(item.id)} 
-                        className="btn btn-danger btn-sm position-absolute rounded-circle shadow-sm" 
-                        style={{ top: '12px', right: '12px', zIndex: 10, width: '32px', height: '32px', padding: '0' }}
-                        title="Delete Post"
+                        className="btn btn-danger btn-sm position-absolute rounded-circle shadow-sm d-flex align-items-center justify-content-center" 
+                        style={{ top: '12px', right: '12px', zIndex: 10, width: '34px', height: '34px', padding: '0', border: 'none' }}
+                        title="Delete Post Instantly"
                       >
                         🗑️
                       </button>
@@ -226,6 +246,15 @@ function App() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            
+            {/* Quick Redirect Info Footer inside Home Dashboard */}
+            {currentPage === 'home' && updates.length > 5 && (
+              <div className="text-center mt-5">
+                <button className="btn btn-outline-primary border-2 px-4 py-2 fw-bold" onClick={() => setCurrentPage('archive')}>
+                  See All Remaining {updates.length - 5} Older Posts ➡️
+                </button>
               </div>
             )}
           </div>
