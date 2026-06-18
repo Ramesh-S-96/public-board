@@ -23,6 +23,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # இந்த ஸ்டெப் தான் Node.js மற்றும் npm-ஐ சர்வரில் இன்ஸ்டால் செய்யும்
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
