@@ -1,324 +1,256 @@
 import React, { useEffect, useState } from 'react';
 
-
-
-// 1. MockAPI Endpoint Connect (Supabase Thevaiyillai)
-
-// TODO: Ungaloda actual MockAPI URL-ai keezhe paste pannunga
-
 const MOCK_API_URL = "https://6a32a7a6c6ca2aee438564fb.mockapi.io/daily_updates";
+const CLOUDINARY_CLOUD_NAME = "dcptbmql7"; 
+const CLOUDINARY_UPLOAD_PRESET = "dcptbmql7";
 
-
+// Ungaluku pidicha oru security key-ai inge set seiyungal
+const ADMIN_SECRET_KEY = "ramesh123"; 
 
 function App() {
+  const [updates, setUpdates] = useState([]);
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-const [updates, setUpdates] = useState([]);
+  // Fetch Data
+  const fetchUpdates = async () => {
+    try {
+      const res = await fetch(MOCK_API_URL);
+      if (!res.ok) throw new Error("Fetch failed");
+      const data = await res.json();
+      setUpdates(data.reverse() || []);
+    } catch (error) {
+      console.error("Error fetching data: ", error.message);
+    }
+  };
 
-const [name, setName] = useState('');
+  useEffect(() => {
+    fetchUpdates();
+  }, []);
 
-const [title, setTitle] = useState('');
+  // Delete unwanted posts function
+  const handleDelete = async (postId) => {
+    const password = prompt("Enter Admin Password to delete this post:");
+    if (!password) return;
 
-const [content, setContent] = useState('');
+    if (password === ADMIN_SECRET_KEY) {
+      try {
+        const res = await fetch(`${MOCK_API_URL}/${postId}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error("Delete failed");
+        
+        alert("🗑️ Post deleted successfully!");
+        fetchUpdates(); // Refresh the list
+      } catch (error) {
+        console.error("Error deleting post:", error.message);
+        alert("Failed to delete post.");
+      }
+    } else {
+      alert("❌ Incorrect Password! Authorization denied.");
+    }
+  };
 
-const [loading, setLoading] = useState(false);
+  // Upload image to Cloudinary
+  const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Cloudinary upload failed");
+      const data = await res.json();
+      return data.secure_url;
+    } catch (err) {
+      console.error("Cloudinary Error: ", err);
+      return null;
+    }
+  };
 
+  // Insert Data
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name || !title || !content) {
+      alert("Please fill all required fields!");
+      return;
+    }
 
-// 2. Fetch Data (Get all updates from MockAPI)
+    setLoading(true);
+    let finalImageUrl = "";
 
-const fetchUpdates = async () => {
+    if (selectedFile) {
+      finalImageUrl = await uploadToCloudinary(selectedFile);
+    }
 
-try {
+    if (!finalImageUrl) {
+      finalImageUrl = `https://picsum.photos/600/400?random=${Math.floor(Math.random() * 100)}`;
+    }
 
-const res = await fetch(MOCK_API_URL);
+    try {
+      const res = await fetch(MOCK_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name, 
+          title, 
+          content, 
+          image: finalImageUrl, 
+          created_at: new Date().toISOString() 
+        })
+      });
 
-if (!res.ok) throw new Error("Fetch failed");
+      if (!res.ok) throw new Error("Insert failed");
 
-const data = await res.json();
+      setName('');
+      setTitle('');
+      setContent('');
+      setSelectedFile(null);
+      document.getElementById('imageUploadInput').value = '';
+      
+      fetchUpdates();
+    } catch (error) {
+      console.error("Error inserting data: ", error.message);
+      alert("Failed to post update.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  return (
+    <div style={customStyles.pageBackground}>
+      <header className="py-5 text-center text-white mb-5" style={customStyles.heroSection}>
+        <div className="container">
+          <span className="badge bg-info text-dark mb-2 px-3 py-2 rounded-pill fw-bold text-uppercase">Hub</span>
+          <h1 className="display-4 fw-extrabold mb-2">Modern Insight Share</h1>
+          <p className="lead opacity-75">Clean & Modern Information Sharing Dashboard</p>
+        </div>
+      </header>
 
-// Live updates fresh-ah top-la varrathukaaga reverse panrom
+      <div className="container pb-5">
+        <div className="row g-4">
+          
+          {/* FORM */}
+          <div className="col-lg-4">
+            <div className="card border-0 shadow-lg sticky-top" style={{ top: '24px', borderRadius: '16px' }}>
+              <div className="card-body p-4">
+                <h3 className="h4 fw-bold mb-4 text-dark">✍️ Write an Article</h3>
+                
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold text-secondary small">Author Name *</label>
+                    <input type="text" className="form-control form-control-lg border-2" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} style={customStyles.inputField} />
+                  </div>
 
-setUpdates(data.reverse() || []);
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold text-secondary small">Topic / Title *</label>
+                    <input type="text" className="form-control form-control-lg border-2" placeholder="Catchy headline" value={title} onChange={(e) => setTitle(e.target.value)} style={customStyles.inputField} />
+                  </div>
 
-} catch (error) {
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold text-secondary small">Cover Image Upload</label>
+                    <input id="imageUploadInput" type="file" accept="image/*" className="form-control form-control-lg border-2" onChange={(e) => setSelectedFile(e.target.files[0])} style={customStyles.inputField} />
+                  </div>
 
-console.error("Error fetching data: ", error.message);
+                  <div className="mb-4">
+                    <label className="form-label fw-semibold text-secondary small">Content / Story *</label>
+                    <textarea rows="5" className="form-control border-2" placeholder="Deep dive into your thoughts..." value={content} onChange={(e) => setContent(e.target.value)} style={customStyles.inputField} />
+                  </div>
 
+                  <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-lg fw-bold shadow-sm" style={customStyles.submitBtn}>
+                    {loading ? 'Uploading & Publishing...' : '🚀 Publish Article'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {/* FEED */}
+          <div className="col-lg-8">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h2 className="h3 fw-bold text-dark m-0">Recent Articles</h2>
+              <span className="badge bg-dark rounded-pill px-3 py-2 fw-semibold">{updates.length} Posts</span>
+            </div>
+
+            {updates.length === 0 ? (
+              <div className="text-center p-5 bg-white rounded-4 shadow-sm border">
+                <h4 className="fw-semibold text-muted">No articles published yet</h4>
+              </div>
+            ) : (
+              <div className="row g-4">
+                {updates.map((item) => (
+                  <div key={item.id} className="col-md-6 d-flex">
+                    <div className="card border-0 shadow-sm w-100 d-flex flex-column dynamic-card position-relative" style={customStyles.blogCard}>
+                      
+                      {/* DELETE ICON (Top Right of Card) */}
+                      <button 
+                        onClick={() => handleDelete(item.id)} 
+                        className="btn btn-danger btn-sm position-absolute rounded-circle shadow-sm" 
+                        style={{ top: '12px', right: '12px', zIndex: 10, width: '32px', height: '32px', padding: '0' }}
+                        title="Delete Post"
+                      >
+                        🗑️
+                      </button>
+
+                      <div className="position-relative overflow-hidden" style={{ height: '180px', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
+                        <img 
+                          src={item.image} 
+                          alt={item.title}
+                          className="w-100 h-100 object-fit-cover card-img-top card-image-hover"
+                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=600&auto=format&fit=crop'; }}
+                        />
+                        <span className="position-absolute bottom-0 start-0 m-3 badge bg-light text-dark shadow-sm px-3 py-2 fw-bold">
+                          👤 {item.name || 'Guest'}
+                        </span>
+                      </div>
+
+                      <div className="card-body p-4 d-flex flex-column flex-grow-1">
+                        <h4 className="card-title h5 fw-bold text-dark text-line-clamp-2 mb-3">
+                          {item.title}
+                        </h4>
+                        <p className="card-text text-secondary text-line-clamp-4 flex-grow-1 mb-4" style={{ fontSize: '14.5px', whiteSpace: 'pre-wrap' }}>
+                          {item.content}
+                        </p>
+                        <hr className="text-muted opacity-25 my-3" />
+                        <div className="d-flex align-items-center justify-content-between text-muted small mt-auto">
+                          <span>📅 {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Just now'}</span>
+                          <span>⏰ {item.created_at ? new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      <style>{`
+        .dynamic-card { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease; }
+        .dynamic-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08) !important; }
+        .card-image-hover { transition: transform 0.5s ease; }
+        .dynamic-card:hover .card-image-hover { transform: scale(1.06); }
+        .text-line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .text-line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+      `}</style>
+    </div>
+  );
 }
 
+const customStyles = {
+  pageBackground: { backgroundColor: '#f4f7fa', minHeight: '100vh', fontFamily: '"Inter", sans-serif' },
+  heroSection: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderBottom: '4px solid #3b82f6' },
+  inputField: { borderRadius: '10px', borderColor: '#e2e8f0', fontSize: '15px', backgroundColor: '#f8fafc' },
+  submitBtn: { background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', border: 'none', borderRadius: '10px', padding: '12px' },
+  blogCard: { borderRadius: '16px', backgroundColor: '#ffffff', border: 'none' }
 };
-
-
-
-useEffect(() => {
-
-fetchUpdates();
-
-}, []);
-
-
-
-// 3. Insert Data (Post new update to MockAPI)
-
-const handleSubmit = async (e) => {
-
-e.preventDefault();
-
-if (!name || !title || !content) {
-
-alert("Please fill all fields (Name, Title, and Content)!");
-
-return;
-
-}
-
-
-
-setLoading(true);
-
-try {
-
-const res = await fetch(MOCK_API_URL, {
-
-method: 'POST',
-
-headers: { 'Content-Type': 'application/json' },
-
-body: JSON.stringify({ name, title, content, created_at: new Date().toISOString() })
-
-});
-
-
-
-if (!res.ok) throw new Error("Insert failed");
-
-
-
-// Form fields clear panrom
-
-setName('');
-
-setTitle('');
-
-setContent('');
-
-
-// List-ai refresh panrom
-
-fetchUpdates();
-
-alert("🎉 Your Update Posted Successfully!");
-
-} catch (error) {
-
-console.error("Error inserting data: ", error.message);
-
-alert("Failed to post update.");
-
-} finally {
-
-setLoading(false);
-
-}
-
-};
-
-
-
-return (
-
-<div style={styles.container}>
-
-<header style={styles.header}>
-
-<h1>👥 Public Updates & Share Board (MockAPI)</h1>
-
-<p>Anyone with this link can share their daily updates instantly!</p>
-
-</header>
-
-
-
-<div style={styles.mainLayout}>
-
-{/* LEFT SIDE: FORM */}
-
-<div style={styles.card}>
-
-<h2 style={styles.sectionTitle}>✍️ Share Your Update</h2>
-
-<form onSubmit={handleSubmit} style={styles.form}>
-
-<div style={styles.formGroup}>
-
-<label style={styles.label}>Your Name</label>
-
-<input
-
-type="text"
-
-placeholder="Enter your name"
-
-value={name}
-
-onChange={(e) => setName(e.target.value)}
-
-style={styles.input}
-
-/>
-
-</div>
-
-
-
-<div style={styles.formGroup}>
-
-<label style={styles.label}>Topic / Title</label>
-
-<input
-
-type="text"
-
-placeholder="e.g., Bug Fix / New Feature"
-
-value={title}
-
-onChange={(e) => setTitle(e.target.value)}
-
-style={styles.input}
-
-/>
-
-</div>
-
-
-<div style={styles.formGroup}>
-
-<label style={styles.label}>Content / Details</label>
-
-<textarea
-
-rows="5"
-
-placeholder="Write your daily work or status updates here..."
-
-value={content}
-
-onChange={(e) => setContent(e.target.value)}
-
-style={styles.textarea}
-
-/>
-
-</div>
-
-
-
-<button type="submit" disabled={loading} style={styles.button}>
-
-{loading ? 'Publishing...' : '🚀 Post to Public Board'}
-
-</button>
-
-</form>
-
-</div>
-
-
-
-{/* RIGHT SIDE: FEED */}
-
-<div style={styles.card}>
-
-<h2 style={styles.sectionTitle}>🕒 Live Timeline ({updates.length})</h2>
-
-<div style={styles.feedContainer}>
-
-{updates.length === 0 ? (
-
-<p style={styles.noData}>No posts yet. Be the first to share an update!</p>
-
-) : (
-
-updates.map((item) => (
-
-<div key={item.id} style={styles.updateCard}>
-
-<div style={styles.authorBadge}>👤 Posted by: <strong>{item.name || 'Anonymous'}</strong></div>
-
-<h3 style={styles.updateTitle}>{item.title}</h3>
-
-<p style={styles.updateContent}>{item.content}</p>
-
-<div style={styles.updateMeta}>
-
-📅 {new Date(item.created_at).toLocaleDateString()} | ⏰ {new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-
-</div>
-
-</div>
-
-))
-
-)}
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-);
-
-}
-
-
-
-// Styles configuration remains the same
-
-const styles = {
-
-container: { maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh' },
-
-header: { textAlign: 'center', marginBottom: '40px', color: '#0f172a' },
-
-mainLayout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px' },
-
-card: { backgroundColor: '#ffffff', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' },
-
-sectionTitle: { marginTop: 0, marginBottom: '20px', color: '#1e293b', borderBottom: '2px solid #f1f5f9', paddingBottom: '10px' },
-
-form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-
-formGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
-
-label: { fontWeight: '600', color: '#475569', fontSize: '14px' },
-
-input: { padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '15px', width: '100%', boxSizing: 'border-box' },
-
-textarea: { padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '15px', resize: 'vertical', width: '100%', boxSizing: 'border-box' },
-
-button: { backgroundColor: '#0284c7', color: 'white', padding: '12px', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' },
-
-feedContainer: { maxHeight: '70vh', overflowY: 'auto' },
-
-noData: { color: '#64748b', textAlign: 'center', fontStyle: 'italic' },
-
-updateCard: { backgroundColor: '#f8fafc', borderLeft: '5px solid #0284c7', padding: '15px', borderRadius: '6px', marginBottom: '15px' },
-
-authorBadge: { fontSize: '13px', color: '#0369a1', backgroundColor: '#e0f2fe', display: 'inline-block', padding: '3px 8px', borderRadius: '4px', marginBottom: '8px' },
-
-updateTitle: { margin: '0 0 6px 0', color: '#1e293b' },
-
-updateContent: { margin: '0 0 10px 0', color: '#334155', lineHeight: '1.5', whiteSpace: 'pre-wrap' },
-
-updateMeta: { fontSize: '12px', color: '#94a3b8', fontWeight: '500' }
-
-};
-
-
 
 export default App;
